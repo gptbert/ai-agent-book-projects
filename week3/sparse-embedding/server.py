@@ -479,8 +479,8 @@ async def get_recent_logs(lines: int = Query(100, description="Number of log lin
 
 if __name__ == "__main__":
     logger.info("Starting Educational Sparse Vector Search Engine Server")
-    logger.info("Server will run on http://localhost:8000")
-    logger.info("Visit http://localhost:8000 for the web interface")
-    logger.info("API documentation available at http://localhost:8000/docs")
+    logger.info("Server will run on http://localhost:8001")
+    logger.info("Visit http://localhost:8001 for the web interface")
+    logger.info("API documentation available at http://localhost:8001/docs")
     
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
+    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="debug")

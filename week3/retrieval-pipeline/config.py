@@ -1,6 +1,6 @@
 """Configuration for the retrieval pipeline."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -28,8 +28,8 @@ class RerankerConfig:
 @dataclass
 class PipelineConfig:
     """Configuration for the retrieval pipeline."""
-    services: ServiceConfig = ServiceConfig()
-    reranker: RerankerConfig = RerankerConfig()
+    services: ServiceConfig = field(default_factory=ServiceConfig)
+    reranker: RerankerConfig = field(default_factory=RerankerConfig)
     
     # Retrieval settings
     default_top_k: int = 20  # Number of candidates to retrieve from each service
