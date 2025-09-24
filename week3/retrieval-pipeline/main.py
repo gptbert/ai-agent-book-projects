@@ -213,6 +213,29 @@ async def list_documents(limit: int = 100, offset: int = 0):
         logger.error(f"Failed to list documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/documents/{doc_id}")
+async def get_document(doc_id: str):
+    """Get a specific document by ID."""
+    if not pipeline:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+    
+    try:
+        doc = pipeline.document_store.get_document(doc_id)
+        if doc is None:
+            raise HTTPException(status_code=404, detail=f"Document {doc_id} not found")
+        
+        # Return in the format expected by agentic RAG
+        return {
+            "doc_id": doc_id,
+            "content": doc.get("text", ""),
+            "metadata": doc.get("metadata", {})
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get document {doc_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/clear")
 async def clear_all():
     """Clear all documents from the pipeline (for testing)."""

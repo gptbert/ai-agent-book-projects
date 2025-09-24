@@ -30,7 +30,7 @@ class RerankerConfig:
     model_name: str = "BAAI/bge-reranker-v2-m3"
     device: str = "mps"  # Use MPS for Mac M1/M2
     batch_size: int = 32
-    max_length: int = 512
+    max_length: int = 8192  # Increased to match HARD_LIMIT in chunking
     use_fp16: bool = True  # Use half precision for faster inference on Mac
     
 @dataclass
