@@ -294,6 +294,9 @@ class MultimodalAgent:
         # Conversation history
         self.conversation_history: List[Message] = []
         
+        # Store current content path for reference
+        self.current_content_path: Optional[str] = None
+        
         # Multimodal tools
         self.tools = MultimodalTools(self) if enable_tools else None
         
@@ -760,16 +763,15 @@ class MultimodalAgent:
         # Add user message to history
         self.add_message(Message(role="user", content=message))
         
-        # Process multimodal content if provided
-        if multimodal_content:
-            if self.extraction_mode == ExtractionMode.EXTRACT_TO_TEXT:
-                # Extract to text and add to context
-                extracted = await self._extract_single_content(multimodal_content)
-                multimodal_content.extracted_text = extracted
-                
-                # Update message with extracted context
-                enhanced_message = f"[Context from {multimodal_content.type}]:\n{extracted}\n\n{message}"
-                self.conversation_history[-1].content = enhanced_message
+        # Process new multimodal content if provided (for native mode)
+        # In extract mode, content should already be in conversation history via load_and_extract_content
+        if multimodal_content and self.extraction_mode == ExtractionMode.EXTRACT_TO_TEXT:
+            # If new content is provided inline during chat, extract and add to the current message
+            extracted = await self._extract_single_content(multimodal_content)
+            
+            # Update the last message with extracted context
+            enhanced_message = f"[Context from {multimodal_content.type}]:\n{extracted}\n\n{message}"
+            self.conversation_history[-1].content = enhanced_message
                 
         # Get response based on model
         model_config = self.config.get_model_config(self.current_model)
@@ -794,14 +796,23 @@ class MultimodalAgent:
         """Stream response from Gemini with thinking mode for debugging"""
         client = genai.Client(api_key=self.config.gemini_api_key)
         
-        # Get the last user message for streaming
-        last_user_message = None
-        for msg in reversed(self.conversation_history):
+        # Build full conversation history for Gemini
+        # Format: alternating user/assistant messages as a single string
+        conversation_parts = []
+        
+        for msg in self.conversation_history:
             if msg.role == "user":
-                last_user_message = msg.content
-                break
-                
-        if not last_user_message:
+                conversation_parts.append(f"User: {msg.content}")
+            elif msg.role == "assistant":
+                conversation_parts.append(f"Assistant: {msg.content}")
+            # System messages can be included as context
+            elif msg.role == "system":
+                conversation_parts.append(f"System: {msg.content}")
+        
+        # Join all conversation parts
+        full_conversation = "\n\n".join(conversation_parts)
+        
+        if not full_conversation:
             return
             
         # Build content list
@@ -826,8 +837,8 @@ class MultimodalAgent:
                 mime_type=mime_type
             ))
             
-        # Add the text message
-        contents.append(last_user_message)
+        # Add the full conversation as context
+        contents.append(full_conversation)
         
         # Always enable thinking mode for transparency and debugging
         config = types.GenerateContentConfig(
@@ -1001,9 +1012,30 @@ class MultimodalAgent:
         return full_response
         
     def reset_conversation(self):
-        """Clear conversation history"""
+        """Clear conversation history and current content"""
         self.conversation_history = []
+        self.current_content_path = None
         
+    async def load_and_extract_content(self, content: MultimodalContent) -> str:
+        """Load and extract content if in extract mode"""
+        # Store the current content path
+        self.current_content_path = content.path
+        
+        if self.extraction_mode == ExtractionMode.EXTRACT_TO_TEXT:
+            # Extract content immediately
+            print("Extracting content to text...", flush=True)
+            extracted_text = await self._extract_single_content(content)
+            
+            # Add the extracted content directly to conversation history as a user message
+            # This provides context for all subsequent questions
+            context_msg = f"[Document: {content.path}]\n\n{extracted_text}"
+            self.add_message(Message(role="user", content=context_msg))
+            
+            return f"Extracted {content.type} content and added to conversation context. Ready for questions."
+        else:
+            # In native mode, just note that content is loaded
+            return f"Loaded {content.type}: {content.path}"
+    
     def get_conversation_history(self) -> List[Dict[str, Any]]:
         """Get conversation history in OpenAI format"""
         return [msg.to_dict() for msg in self.conversation_history]
