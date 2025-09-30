@@ -270,6 +270,13 @@ playwright install chromium --force
 - Create a bot via [@BotFather](https://t.me/botfather)
 - Get your chat ID from [@userinfobot](https://t.me/userinfobot)
 
+### LangChain/Pydantic Issues
+If you see errors like "`ChatOpenAI` is not fully defined" or Pydantic validation errors:
+- This is a known compatibility issue between LangChain and Pydantic v2
+- The fix: ChatOpenAI is now initialized on-demand only when needed (in `browser_execute_task`)
+- Simple browser navigation doesn't require OpenAI API key
+- Only autonomous browser tasks (`browser_execute_task`) require `OPENAI_API_KEY`
+
 ## License
 
 MIT License

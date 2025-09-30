@@ -10,21 +10,18 @@ logger = logging.getLogger(__name__)
 
 # Browser session singleton
 _browser_session = None
-_browser_agent = None
 
 
 async def init_browser(headless: bool = False, user_data_dir: Optional[str] = None):
     """Initialize browser session."""
-    global _browser_session, _browser_agent
+    global _browser_session
     
     if _browser_session is not None:
         return _browser_session
     
     try:
-        from browser_use import Browser, Agent
+        from browser_use import Browser
         from browser_use.browser.profile import BrowserProfile
-        from langchain_openai import ChatOpenAI
-        import os
         
         # Create browser profile
         profile_data = {
@@ -43,15 +40,8 @@ async def init_browser(headless: bool = False, user_data_dir: Optional[str] = No
         
         _browser_session = browser
         
-        # Initialize LLM for agent (if API key is available)
-        api_key = os.getenv("OPENAI_API_KEY")
-        if api_key:
-            llm = ChatOpenAI(
-                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-                api_key=api_key,
-                temperature=0.7,
-            )
-            _browser_agent = Agent
+        # Note: ChatOpenAI is initialized on-demand in browser_execute_task()
+        # to avoid Pydantic v2 initialization issues during browser startup
         
         logger.info("Browser session initialized successfully")
         return _browser_session
