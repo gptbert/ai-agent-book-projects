@@ -100,7 +100,8 @@ pip install -r requirements.txt
 - Python 3.10+
 - PyTorch 2.0+
 - CUDA 12.1+ (for GPU acceleration)
-- Recommended: 1-8 GPUs with 24GB+ VRAM each
+- **GPU**: H100 80GB (for 30B model) or any GPU with 24GB+ for smaller models
+- **Memory**: ~70-75GB VRAM for 30B model with LoRA
 
 ## Usage
 
@@ -148,73 +149,31 @@ This will:
 
 Fine-tune the student model on the distilled data using TRL:
 
-#### Option A: Single GPU Training
-
 ```bash
-# With defaults
+# Single GPU training (recommended - simpler and works reliably)
 bash train_trl.sh
-
-# Or specify custom model
-bash train_trl.sh "Qwen/Qwen3-30B-A3B-Instruct-2507" "./models/my_model"
 ```
 
-#### Option B: Multi-GPU Training - FSDP Mode ⭐ **RECOMMENDED for 30B model**
+### Step 3: Evaluate Your Model
+
+After training, evaluate the distilled model's performance:
 
 ```bash
-# FSDP: Model is sharded across GPUs (much more memory efficient!)
-bash train_trl_fsdp.sh
+# Evaluate on the full test set
+python evaluate.py \
+    --model_path ./models/prompt_distillation_trl \
+    --test_file ./example-data/multilingual.txt
 
-# Or specify custom model
-bash train_trl_fsdp.sh "Qwen/Qwen3-30B-A3B-Instruct-2507" "./models/my_model"
-```
+# Quick evaluation on a subset
+python evaluate.py \
+    --model_path ./models/prompt_distillation_trl \
+    --test_file ./example-data/multilingual.txt \
+    --max_samples 100
 
-The training script will:
-- Load the student model
-- Apply LoRA for efficient training
-- Train on the distilled dataset
-- Save the fine-tuned model with LoRA adapters
-
-### Step 3: Use Your Model
-
-After training, use the distilled model:
-
-```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
-
-# Load base model and tokenizer
-model_name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-base_model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    torch_dtype="auto",
-    device_map="auto"
-)
-
-# Load LoRA adapters from distillation training
-model = PeftModel.from_pretrained(
-    base_model,
-    "./models/prompt_distillation_trl"
-)
-
-# Test the model - Notice: NO PROMPT needed!
-messages = [
-    {"role": "user", "content": "Bonjour, comment allez-vous?"}
-]
-input_ids = tokenizer.apply_chat_template(
-    messages,
-    add_generation_prompt=True,
-    return_tensors="pt"
-).to(model.device)
-
-# Fast, direct response without thinking or prompts
-output = model.generate(input_ids, max_new_tokens=10, temperature=0.1)
-response = tokenizer.decode(output[0][input_ids.shape[1]:], skip_special_tokens=True)
-print(f"Language: {response}")  # Should output: fr
-
-# Compare with teacher model (would require 2000+ token prompt + thinking)
-# Teacher: ~2-3 seconds with thinking overhead
-# Student: ~0.1 seconds direct response ⚡
+# Save results to a file
+python evaluate.py \
+    --model_path ./models/prompt_distillation_trl \
+    --output_file ./evaluation_results.json
 ```
 
 ## Project Structure
@@ -226,9 +185,8 @@ prompt-distillation/
 ├── create_data.py                     # Data generation script (Step 1)
 ├── create_data_h100x8.sh              # Parallel data generation for H100x8
 ├── train_sft_trl.py                   # Training script using TRL (Step 2)
-├── train_trl.sh                       # Single GPU training
-├── train_trl_multi_gpu.sh             # Multi-GPU DDP training
-├── train_trl_fsdp.sh                  # Multi-GPU FSDP training ⭐ Recommended
+├── train_trl.sh                       # Training script (single GPU)
+├── evaluate.py                        # Evaluation script
 ├── data/                              # Generated training data
 │   └── prompt_distillation_lang.jsonl
 └── models/                            # Trained model checkpoints
@@ -339,33 +297,24 @@ This dramatic speedup makes the distilled model practical for **production deplo
 
 ### Out of Memory (OOM)
 
-The 30B model is very large! If you still encounter OOM errors:
+The 30B model requires a large H100 GPU (80GB). If you encounter OOM errors:
 
-**For Multi-GPU Training (8 GPUs):**
-1. **Use FSDP mode** (recommended): `bash train_trl_fsdp.sh`
-   - Shards model across GPUs (~10-15GB per GPU)
-   - Can use full hyperparameters (batch=4, length=2048)
-2. If using DDP mode and getting OOM:
-   - Already optimized with batch_size=1, max_length=512
-   - Reduce `max_length` further (e.g., 256)
-   - Or reduce `lora_rank` from 32 to 16 or 8
+**Solutions:**
+1. Reduce `per_device_train_batch_size` from 4 to 2 or 1
+2. Reduce `max_length` from 2048 to 1024 or 512
+3. Increase `gradient_accumulation_steps` to maintain effective batch size
+4. Reduce `lora_rank` from 32 to 16 or 8
 
-**For Single GPU Training:**
-- **Not recommended** for 30B model on single GPU
-- Use a smaller model instead:
-  - Qwen2.5-7B-Instruct (~28GB memory)
-  - Qwen2.5-14B-Instruct (~50GB memory)
-  - Change `--model_name` in the training script
+**Alternative: Use a Smaller Model**
+If you don't have an 80GB GPU, use a smaller model:
+- **Qwen2.5-7B-Instruct**: ~28GB memory, fits on most GPUs
+- **Qwen2.5-14B-Instruct**: ~50GB memory, fits on A100/H100
+- Just change `--model_name` in the training script
 
-**Memory Requirements by Model:**
-- 7B model: ~28GB per GPU (fits comfortably)
-- 14B model: ~50GB per GPU (LoRA + batch_size=2)
-- 30B model: ~70GB per GPU (LoRA + batch_size=1, max_length=512)
-
-**Why DDP uses more memory than expected:**
-- In DDP, each GPU loads the **full model** (not sharded)
-- 30B params × 2 bytes (bf16) = 60GB just for weights
-- Add LoRA adapters, optimizer states, activations → ~70-75GB total
+**Memory Requirements:**
+- 30B model: ~70-75GB (requires H100 80GB)
+- 14B model: ~40-50GB (fits on A100 40GB or H100)
+- 7B model: ~25-30GB (fits on most GPUs)
 
 ### Data Generation Issues
 
