@@ -29,5 +29,15 @@ requests>=2.31.0
 # Timer & Scheduling
 apscheduler>=3.10.0
 
+# Chess Game
+python-chess>=1.999
+
+# Excel Operations
+openpyxl>=3.0.0
+pandas>=2.0.0
+
+# Intelligence Tools (requires OpenAI API)
+openai>=1.0.0
+
 # Logging
 loguru>=0.7.0

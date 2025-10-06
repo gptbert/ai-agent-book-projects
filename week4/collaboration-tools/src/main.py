@@ -48,6 +48,31 @@ from timer_tools import (
     get_timer_status,
     _load_timers
 )
+from chess_tools import (
+    new_game,
+    load_fen,
+    make_move,
+    get_legal_moves,
+    get_board_state,
+    get_game_status,
+    undo_move,
+    get_move_history,
+    reset_board
+)
+from excel_tools import (
+    read_excel_data,
+    write_excel_data,
+    create_excel_workbook,
+    create_excel_worksheet,
+    apply_excel_formula,
+    get_excel_metadata,
+    create_excel_screenshot
+)
+from intelligence_tools import (
+    generate_python_code,
+    complex_problem_reasoning,
+    guard_reasoning_process
+)
 from config import load_config
 
 # Configure logging
@@ -263,6 +288,191 @@ async def mcp_get_timer_status(
 ) -> str:
     """Get timer status."""
     result = await get_timer_status(timer_id)
+    return str(result)
+
+
+# ============================================================================
+# CHESS GAME TOOLS
+# ============================================================================
+
+@mcp.tool(description="Start a new chess game")
+async def mcp_chess_new_game() -> str:
+    """Start a new chess game with the standard starting position."""
+    result = await new_game()
+    return str(result)
+
+
+@mcp.tool(description="Load a chess position from FEN notation")
+async def mcp_chess_load_fen(
+    fen_string: str = Field(description="FEN string representing the board state")
+) -> str:
+    """Load a chess position from FEN."""
+    result = await load_fen(fen_string)
+    return str(result)
+
+
+@mcp.tool(description="Make a move on the chess board")
+async def mcp_chess_make_move(
+    move_str: str = Field(description="Move in UCI (e.g., 'e2e4') or SAN (e.g., 'e4') format")
+) -> str:
+    """Make a chess move."""
+    result = await make_move(move_str)
+    return str(result)
+
+
+@mcp.tool(description="Get all legal moves in the current position")
+async def mcp_chess_get_legal_moves() -> str:
+    """Get all legal moves."""
+    result = await get_legal_moves()
+    return str(result)
+
+
+@mcp.tool(description="Get the current chess board state")
+async def mcp_chess_get_board_state() -> str:
+    """Get current board state."""
+    result = await get_board_state()
+    return str(result)
+
+
+@mcp.tool(description="Get the current game status (checkmate, stalemate, etc.)")
+async def mcp_chess_get_game_status() -> str:
+    """Get game status."""
+    result = await get_game_status()
+    return str(result)
+
+
+@mcp.tool(description="Undo the last move")
+async def mcp_chess_undo_move() -> str:
+    """Undo the last move."""
+    result = await undo_move()
+    return str(result)
+
+
+@mcp.tool(description="Get the history of moves played")
+async def mcp_chess_get_move_history() -> str:
+    """Get move history."""
+    result = await get_move_history()
+    return str(result)
+
+
+@mcp.tool(description="Reset the chess board to starting position")
+async def mcp_chess_reset_board() -> str:
+    """Reset the board."""
+    result = await reset_board()
+    return str(result)
+
+
+# ============================================================================
+# EXCEL OPERATION TOOLS
+# ============================================================================
+
+@mcp.tool(description="Read data from Excel file")
+async def mcp_excel_read(
+    file_path: str = Field(description="Path to Excel file"),
+    sheet_name: str | None = Field(default=None, description="Sheet name (None for all sheets)"),
+    max_rows: int = Field(default=1000, description="Maximum rows to read")
+) -> str:
+    """Read Excel data."""
+    result = await read_excel_data(file_path, sheet_name, max_rows)
+    return str(result)
+
+
+@mcp.tool(description="Write data to Excel file")
+async def mcp_excel_write(
+    file_path: str = Field(description="Path to Excel file"),
+    data: Dict[str, List[Dict]] = Field(description="Data to write {sheet_name: [rows]}"),
+    overwrite: bool = Field(default=False, description="Overwrite existing file")
+) -> str:
+    """Write Excel data."""
+    result = await write_excel_data(file_path, data, overwrite)
+    return str(result)
+
+
+@mcp.tool(description="Create a new Excel workbook")
+async def mcp_excel_create_workbook(
+    file_path: str = Field(description="Path for new workbook")
+) -> str:
+    """Create Excel workbook."""
+    result = await create_excel_workbook(file_path)
+    return str(result)
+
+
+@mcp.tool(description="Create a new worksheet in Excel")
+async def mcp_excel_create_worksheet(
+    file_path: str = Field(description="Path to Excel file"),
+    sheet_name: str = Field(description="Name for new worksheet")
+) -> str:
+    """Create Excel worksheet."""
+    result = await create_excel_worksheet(file_path, sheet_name)
+    return str(result)
+
+
+@mcp.tool(description="Apply formula to Excel cell")
+async def mcp_excel_apply_formula(
+    file_path: str = Field(description="Path to Excel file"),
+    sheet_name: str = Field(description="Worksheet name"),
+    cell: str = Field(description="Cell reference (e.g., 'A1')"),
+    formula: str = Field(description="Excel formula (e.g., '=SUM(A1:A10)')")
+) -> str:
+    """Apply Excel formula."""
+    result = await apply_excel_formula(file_path, sheet_name, cell, formula)
+    return str(result)
+
+
+@mcp.tool(description="Get Excel file metadata")
+async def mcp_excel_get_metadata(
+    file_path: str = Field(description="Path to Excel file")
+) -> str:
+    """Get Excel metadata."""
+    result = await get_excel_metadata(file_path)
+    return str(result)
+
+
+@mcp.tool(description="Create screenshot of Excel file")
+async def mcp_excel_screenshot(
+    file_path: str = Field(description="Path to Excel file"),
+    sheet_name: str | None = Field(default=None, description="Sheet name"),
+    output_dir: str = Field(default=".", description="Output directory")
+) -> str:
+    """Create Excel screenshot."""
+    result = await create_excel_screenshot(file_path, sheet_name, output_dir)
+    return str(result)
+
+
+# ============================================================================
+# INTELLIGENCE PROCESSING TOOLS
+# ============================================================================
+
+@mcp.tool(description="Generate Python code based on task description")
+async def mcp_intelligence_generate_code(
+    task_description: str = Field(description="Description of coding task"),
+    requirements: str | None = Field(default=None, description="Additional requirements"),
+    temperature: float = Field(default=0.7, description="LLM temperature")
+) -> str:
+    """Generate Python code."""
+    result = await generate_python_code(task_description, requirements, temperature)
+    return str(result)
+
+
+@mcp.tool(description="Perform complex problem reasoning with step-by-step thinking")
+async def mcp_intelligence_think(
+    problem: str = Field(description="Problem statement"),
+    context: str | None = Field(default=None, description="Optional context"),
+    reasoning_steps: int = Field(default=3, description="Number of reasoning steps")
+) -> str:
+    """Complex problem reasoning."""
+    result = await complex_problem_reasoning(problem, context, reasoning_steps)
+    return str(result)
+
+
+@mcp.tool(description="Guard and validate a proposed action for safety")
+async def mcp_intelligence_guard(
+    proposed_action: str = Field(description="Proposed action to validate"),
+    context: Dict[str, Any] = Field(description="Context for evaluation"),
+    safety_rules: List[str] | None = Field(default=None, description="Safety rules to check")
+) -> str:
+    """Guard reasoning process."""
+    result = await guard_reasoning_process(proposed_action, context, safety_rules)
     return str(result)
 
 
