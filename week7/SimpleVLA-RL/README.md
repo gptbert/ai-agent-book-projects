@@ -831,7 +831,7 @@ actor_rollout_ref.rollout.temperature=1.6
 
 # 实验结果
 
-[SimpleVLA RL rollout 结果](https://01.me/files/ai-agent-book/SimpleVLA-RL-rollouts.zip)
+[SimpleVLA RL rollout 结果（即机器人在虚拟环境中操作的视频）](https://01.me/files/ai-agent-book/SimpleVLA-RL-rollouts.zip)
 
 [wandb 实验结果](https://wandb.ai/bojieli-pine-ai/SimpleVLA-RL)
 
